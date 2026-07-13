@@ -1,0 +1,8 @@
+{
+  "appId": "com.patriarchlegacy.steadyword",
+  "appName": "A Steady Word",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#0b1020"
+  }
+}
