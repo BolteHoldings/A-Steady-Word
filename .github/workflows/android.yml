@@ -39,6 +39,12 @@ jobs:
           sed -i "s/versionName \"1.0\"/versionName \"1.0.${{ github.run_number }}\"/" android/app/build.gradle
           grep -E "versionCode|versionName" android/app/build.gradle
 
+          - name: Bump target/compile SDK to 35
+        run: |
+          sed -i 's/compileSdk .*/compileSdk 35/' android/variables.gradle
+          sed -i 's/targetSdkVersion .*/targetSdkVersion 35/' android/variables.gradle
+          cat android/variables.gradle
+
       # --- SIGNING -----------------------------------------------------------
       # Runs only if the four repository secrets exist (see README > Signing).
       # Without them the build still runs and produces an UNSIGNED bundle.
