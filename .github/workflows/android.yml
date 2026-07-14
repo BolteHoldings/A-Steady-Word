@@ -32,22 +32,16 @@ jobs:
         run: npx cap add android || npx cap sync android
 
       - name: Set version from CI run number
-        # android/ is regenerated fresh every run, so without this every build
-        # would be versionCode 1 and Google Play would reject repeat uploads.
         run: |
           sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/" android/app/build.gradle
           sed -i "s/versionName \"1.0\"/versionName \"1.0.${{ github.run_number }}\"/" android/app/build.gradle
-          grep -E "versionCode|versionName" android/app/build.gradle
 
-          - name: Bump target/compile SDK to 35
+      - name: Bump target/compile SDK to 35
         run: |
           sed -i 's/compileSdk .*/compileSdk 35/' android/variables.gradle
           sed -i 's/targetSdkVersion .*/targetSdkVersion 35/' android/variables.gradle
           cat android/variables.gradle
 
-      # --- SIGNING -----------------------------------------------------------
-      # Runs only if the four repository secrets exist (see README > Signing).
-      # Without them the build still runs and produces an UNSIGNED bundle.
       - name: Decode upload keystore
         if: ${{ env.KEYSTORE_BASE64 != '' }}
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
