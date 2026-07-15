@@ -1322,8 +1322,10 @@ function Emblem() {
 const css = `
 /* Fonts are bundled locally via @fontsource (see main.jsx) — no network import. */
 
+:root { color-scheme: dark; }
 *, *::before, *::after { box-sizing: border-box; }
-html, body { max-width: 100%; overflow-x: hidden; margin: 0; }
+html, body { max-width: 100%; overflow-x: hidden; margin: 0; background:#0C1925; color:#ECE3CF; }
+html { -webkit-text-size-adjust: 100%; }
 
 .sw-root{
   --ink:#0C1925; --deep:#13283A; --bone:#ECE3CF; --bone-dim:rgba(236,227,207,.60);
