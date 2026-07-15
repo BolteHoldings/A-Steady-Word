@@ -1320,7 +1320,13 @@ function Emblem() {
 }
 
 const css = `
+
 /* Fonts are bundled locally via @fontsource (see main.jsx) — no network import. */
+
+   *, *::before, *::after { box-sizing: border-box; }
+   html, body { max-width: 100%; overflow-x: hidden; margin: 0; }
+
+   .sw-root{
 
 .sw-root{
   --ink:#0C1925; --deep:#13283A; --bone:#ECE3CF; --bone-dim:rgba(236,227,207,.60);
