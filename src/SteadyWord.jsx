@@ -1040,16 +1040,36 @@ export default function SteadyWord() {
   const [activeCat, setActiveCat] = useState(null);
   const [saved, setSaved] = useState([]);
   const [done, setDone] = useState([]); // completed plan days
-  const seed = useRef(0);
+  const [showWelcome, setShowWelcome] = useState(false);
+  const recent = useRef([]);
+
+  // Random pick that avoids recently shown words, so repeats feel fresh
+  // and don't always start from the top of a pool on each app launch.
+  function pick(pool) {
+    if (!pool || pool.length === 0) return WORDS[0];
+    if (pool.length === 1) return pool[0];
+    const avoid = new Set(recent.current);
+    let candidates = pool.filter((w) => !avoid.has(w.id));
+    if (candidates.length === 0) candidates = pool;
+    const w = candidates[Math.floor(Math.random() * candidates.length)];
+    recent.current.push(w.id);
+    const cap = Math.min(8, Math.max(1, Math.floor(pool.length / 2)));
+    while (recent.current.length > cap) recent.current.shift();
+    return w;
+  }
 
   useEffect(() => {
     (async () => {
+      const seen = await storageGet("welcome-seen");
+      if (!seen) setShowWelcome(true);
       const s = await storageGet("saved-words");
       if (s) { try { setSaved(JSON.parse(s)); } catch (e) {} }
       const d = await storageGet("plan-done");
       if (d) { try { setDone(JSON.parse(d)); } catch (e) {} }
     })();
   }, []);
+
+  function dismissWelcome() { setShowWelcome(false); storageSet("welcome-seen", "1"); }
 
   function persistSaved(next) { setSaved(next); storageSet("saved-words", JSON.stringify(next)); }
   function persistDone(next) { setDone(next); storageSet("plan-done", JSON.stringify(next)); }
@@ -1067,12 +1087,12 @@ export default function SteadyWord() {
     const t = burden.trim();
     let pool = WORDS;
     if (t) { const cat = matchCategory(t); if (cat) { const p = wordsForCat(cat); if (p.length) pool = p; } }
-    const w = pool[seed.current++ % pool.length];
+    const w = pick(pool);
     show(w, t ? "A word for you" : "A steady word", "reading");
   }
 
   function todaysWord() { show(WORDS[dayIndex() % WORDS.length], "Today's word", "reading"); }
-  function steadyTruth() { show(WORDS[seed.current++ % WORDS.length], "A steady word", "reading"); }
+  function steadyTruth() { show(pick(WORDS), "A steady word", "reading"); }
 
   // "Receive another" follows wherever the current word came from:
   // a browsed topic -> another from that topic; a typed burden -> another for it;
@@ -1080,7 +1100,7 @@ export default function SteadyWord() {
   function receiveAnother() {
     if (activeCat && badge === activeCat.label) {
       const p = wordsForCat(activeCat.id);
-      if (p.length) { show(p[seed.current++ % p.length], activeCat.label, "reading"); return; }
+      if (p.length) { show(pick(p), activeCat.label, "reading"); return; }
     }
     if (badge === "A word for you" && burden.trim()) { receiveWord(); return; }
     steadyTruth();
@@ -1101,6 +1121,32 @@ export default function SteadyWord() {
     <div className="sw-root">
       <style>{css}</style>
       <div className={"sw-horizon" + (view !== "home" ? " is-lit" : "")} aria-hidden="true" />
+
+      {showWelcome && (
+        <div className="sw-welcome" role="dialog" aria-modal="true">
+          <div className="sw-welcome-inner sw-fade">
+            <Emblem />
+            <h1 className="sw-welcome-title">Welcome</h1>
+            <p className="sw-welcome-lede">This is a quiet place for hard days.</p>
+            <p className="sw-welcome-p">
+              When you're anxious, weary, grieving, or unsure, <em>A Steady Word</em> offers you a
+              passage of Scripture, a few honest words, and a prayer — one at a time, without noise or hurry.
+            </p>
+            <p className="sw-welcome-p">
+              It rests on a single, steadying truth: that <strong>God is sovereign</strong>. Not distant or
+              indifferent, but in loving control of all things — so that nothing reaches you outside His hand.
+            </p>
+            <p className="sw-welcome-p">
+              That idea runs through an old book by <strong>A. W. Pink</strong> (1886–1952) called
+              <em> The Sovereignty of God</em>. His words, and the Scripture behind them, are woven through
+              everything here — meant not as cold doctrine, but as comfort for ordinary, difficult days.
+            </p>
+            <p className="sw-welcome-p">However you came to be here, may you find something steady.</p>
+            <button className="sw-primary sw-welcome-btn" onClick={dismissWelcome}>Enter</button>
+            <p className="sw-welcome-note">You can revisit this anytime under &ldquo;About.&rdquo;</p>
+          </div>
+        </div>
+      )}
 
       <main className="sw-stage">
         {/* ---------------------------- HOME ---------------------------- */}
@@ -1258,6 +1304,7 @@ export default function SteadyWord() {
               <figcaption className="sw-pink-cite">A.&nbsp;W.&nbsp;Pink, <span>The Sovereignty of God</span></figcaption>
             </figure>
             <p className="sw-about">Every quotation is drawn from the original public-domain editions of Pink&rsquo;s 1918 classic. Scripture is from the King James Version. The reflections and prayers are written to carry Pink&rsquo;s comfort in plain, everyday language.</p>
+            <button className="sw-secondary" style={{ marginTop: "18px" }} onClick={() => { setView("home"); setShowWelcome(true); }}>Read the welcome again</button>
           </section>
         )}
       </main>
@@ -1450,4 +1497,21 @@ button:focus-visible, .sw-input:focus-visible{ outline:2px solid var(--gold); ou
   .sw-fade,.sw-emblem,.sw-scripture,.sw-ref,.sw-encouragement,.sw-pink,.sw-prayer,.sw-practice{ animation:none; opacity:1; transform:none; }
   .sw-horizon{ transition:none; }
 }
+
+/* ---- first-run welcome ---- */
+.sw-welcome{ position:fixed; inset:0; z-index:50; overflow-y:auto;
+  background:radial-gradient(120% 80% at 50% 0%, var(--deep) 0%, var(--ink) 62%);
+  display:flex; justify-content:center; }
+.sw-welcome-inner{ width:100%; max-width:560px; padding:56px 28px 48px; text-align:center; }
+.sw-welcome-title{ font-family:"Cormorant Garamond",Georgia,serif; font-weight:600;
+  font-size:clamp(30px,8vw,42px); color:var(--bone); margin:4px 0 14px; letter-spacing:.01em; }
+.sw-welcome-lede{ font-family:"Cormorant Garamond",Georgia,serif; font-style:italic;
+  font-size:clamp(19px,5vw,23px); color:var(--gold); margin:0 0 22px; }
+.sw-welcome-p{ font-family:"EB Garamond",Georgia,serif; font-size:17px; line-height:1.66;
+  color:var(--bone); opacity:.92; margin:0 0 16px; text-align:left; }
+.sw-welcome-p em{ font-style:italic; }
+.sw-welcome-p strong{ color:var(--gold); font-weight:600; }
+.sw-welcome-btn{ margin:22px 0 12px; }
+.sw-welcome-note{ font-family:ui-sans-serif,system-ui,sans-serif; font-size:12px;
+  letter-spacing:.03em; color:var(--bone-dim); margin:0; }
 `;
