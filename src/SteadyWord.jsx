@@ -1041,6 +1041,7 @@ export default function SteadyWord() {
   const [saved, setSaved] = useState([]);
   const [done, setDone] = useState([]); // completed plan days
   const [showWelcome, setShowWelcome] = useState(false);
+  const [streak, setStreak] = useState({ count: 0, longest: 0, lastDate: null });
   const recent = useRef([]);
 
   // Random pick that avoids recently shown words, so repeats feel fresh
@@ -1066,8 +1067,33 @@ export default function SteadyWord() {
       if (s) { try { setSaved(JSON.parse(s)); } catch (e) {} }
       const d = await storageGet("plan-done");
       if (d) { try { setDone(JSON.parse(d)); } catch (e) {} }
+      const st = await storageGet("streak");
+      if (st) { try { setStreak(JSON.parse(st)); } catch (e) {} }
     })();
   }, []);
+
+  useEffect(() => { if (streak.lastDate) storageSet("streak", JSON.stringify(streak)); }, [streak]);
+
+  // Local-day string (respects the user's timezone, matches dayIndex).
+  function todayStr() {
+    const n = new Date();
+    return new Date(n.getTime() - n.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  }
+  function daysBetween(a, b) {
+    return Math.round((Date.parse(b + "T00:00:00Z") - Date.parse(a + "T00:00:00Z")) / 86400000);
+  }
+  // Called when the user opens any word. Consecutive days (or a single missed
+  // day, forgiven by one-day grace) extend the streak; longer gaps reset it.
+  function markDayActive() {
+    const today = todayStr();
+    setStreak((prev) => {
+      if (prev.lastDate === today) return prev; // already counted today
+      let count;
+      if (!prev.lastDate) count = 1;
+      else { const gap = daysBetween(prev.lastDate, today); count = gap <= 2 ? prev.count + 1 : 1; }
+      return { count, longest: Math.max(prev.longest || 0, count), lastDate: today };
+    });
+  }
 
   function dismissWelcome() { setShowWelcome(false); storageSet("welcome-seen", "1"); }
 
@@ -1081,7 +1107,7 @@ export default function SteadyWord() {
     else persistSaved([{ id: w.id, scripture: w.scripture, reference: w.reference, encouragement: w.encouragement, prayer: w.prayer, themeId: w.themeId, practice: w.practice }, ...saved]);
   }
 
-  function show(w, b, nextView) { setWord(w); setBadge(b || null); setView(nextView || "reading"); }
+  function show(w, b, nextView) { if (w) markDayActive(); setWord(w); setBadge(b || null); setView(nextView || "reading"); }
 
   function receiveWord() {
     const t = burden.trim();
@@ -1155,6 +1181,14 @@ export default function SteadyWord() {
             <p className="sw-eyebrow">A. W. Pink &middot; The Sovereignty of God</p>
             <h1 className="sw-hero">A Steady Word</h1>
             <p className="sw-lede">Encouragement for a hard day, anchored in the God who reigns over all of it.</p>
+
+            {streak.count > 0 && (
+              <p className="sw-streak">
+                <span className="sw-streak-flame" aria-hidden="true">🔥</span>
+                {streak.count} {streak.count === 1 ? "day" : "days"} steady
+                {streak.longest > streak.count ? <span className="sw-streak-best"> · best {streak.longest}</span> : null}
+              </p>
+            )}
 
             <div className="sw-menu">
               <button className="sw-card sw-card-lead" onClick={() => setView("compose")}>
@@ -1396,6 +1430,11 @@ html { -webkit-text-size-adjust: 100%; }
 .sw-hero{ font-family:'Cormorant Garamond',serif; font-weight:600; font-size:clamp(40px,11vw,60px);
   line-height:1.0; letter-spacing:.01em; margin:0 0 16px; }
 .sw-lede{ font-size:clamp(16px,4.4vw,19px); line-height:1.55; color:var(--bone-dim); margin:0 0 32px; max-width:42ch; }
+.sw-streak{ display:inline-flex; align-items:center; gap:8px; margin:-18px 0 30px;
+  font-family:ui-sans-serif,system-ui,sans-serif; font-size:13px; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--gold); border:1px solid var(--gold-soft); border-radius:999px; padding:6px 14px; }
+.sw-streak-flame{ font-size:14px; }
+.sw-streak-best{ color:var(--bone-dim); letter-spacing:.04em; }
 .sw-h2{ font-family:'Cormorant Garamond',serif; font-weight:600; font-size:clamp(28px,7vw,38px); line-height:1.1; margin:14px 0 8px; }
 .sw-sub{ font-size:clamp(15px,4vw,17px); line-height:1.5; color:var(--bone-dim); margin:0 0 26px; max-width:46ch; }
 .sw-about{ font-size:clamp(16px,4.2vw,18px); line-height:1.6; color:var(--bone); margin:0 0 22px; max-width:48ch; }
