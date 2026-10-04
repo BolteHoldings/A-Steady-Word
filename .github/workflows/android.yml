@@ -31,10 +31,15 @@ jobs:
       - name: Add / sync Android platform
         run: npx cap add android || npx cap sync android
 
-      - name: Set version from CI run number
+      - name: Set version from current time
+        # Minutes since 2020-01-01 UTC: a number that only ever goes up, so it
+        # can never repeat a version code Play has already seen, no matter
+        # what the workflow run history looks like.
         run: |
-          sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/" android/app/build.gradle
-          sed -i "s/versionName \"1.0\"/versionName \"1.0.${{ github.run_number }}\"/" android/app/build.gradle
+          VC=$(( ( $(date -u +%s) - 1577836800 ) / 60 ))
+          sed -i "s/versionCode 1/versionCode $VC/" android/app/build.gradle
+          sed -i "s/versionName \"1.0\"/versionName \"1.0.$VC\"/" android/app/build.gradle
+          grep -E "versionCode|versionName" android/app/build.gradle
 
       - name: Bump min, target and compile SDK
         run: |
