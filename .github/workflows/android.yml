@@ -31,6 +31,27 @@ jobs:
       - name: Add / sync Android platform
         run: npx cap add android || npx cap sync android
 
+      - name: Install app icon (replaces the default Capacitor icon)
+        run: |
+          set -e
+          SRC=icon-512.png
+          RES=android/app/src/main/res
+          declare -A L=( [mdpi]=48 [hdpi]=72 [xhdpi]=96 [xxhdpi]=144 [xxxhdpi]=192 )
+          for d in "${!L[@]}"; do
+            s=${L[$d]}; f=$((s*9/4)); mkdir -p $RES/mipmap-$d
+            convert $SRC -resize ${s}x${s} $RES/mipmap-$d/ic_launcher.png
+            convert $SRC -resize ${s}x${s} \( -size ${s}x${s} xc:none -fill white -draw "circle $((s/2)),$((s/2)) $((s/2)),0" \) -compose DstIn -composite $RES/mipmap-$d/ic_launcher_round.png
+            convert $SRC -crop 360x200+76+150 +repage -channel R -separate +channel -level 8%,75% /tmp/mask.png
+            convert /tmp/mask.png -background "#DDB865" -alpha shape -resize $((f*58/100))x -background none -gravity center -extent ${f}x${f} PNG32:$RES/mipmap-$d/ic_launcher_foreground.png
+          done
+          mkdir -p $RES/values
+          cat > $RES/values/ic_launcher_background.xml <<'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="ic_launcher_background">#0E1528</color>
+          </resources>
+          XML
+
       - name: Set version from current time
         # Minutes since 2020-01-01 UTC: a number that only ever goes up, so it
         # can never repeat a version code Play has already seen, no matter
